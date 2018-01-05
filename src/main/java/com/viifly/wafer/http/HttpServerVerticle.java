@@ -11,6 +11,7 @@ import com.viifly.wafer.CommonConstants;
 import com.viifly.wafer.weapp.auth.AuthService;
 import com.viifly.wafer.weapp.auth.AuthServiceVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -79,12 +80,16 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         authService.authorization(code, iv, encryptedData, ar -> {
             if (ar.succeeded()) {
-                JsonObject jsonObject = ar.result();
+                JsonObject retJson = new JsonObject()
+                        .put("F2C224D4-2BCE-4C64-AF9F-A6D872000D1A", 1)
+                        .put("session", ar.result());
+
                 //String openid = jsonObject.getString("openid");
                 //String sessionKey = jsonObject.getString("session_key");
 
                 context.response().putHeader("Content-Type", "application/json");
-                context.response().end(jsonObject.encode());
+
+                context.response().end(retJson.encode());
             } else {
                 context.response().setStatusCode(400);
                 context.response().end("getSessionKey Failed: " + ar.cause());

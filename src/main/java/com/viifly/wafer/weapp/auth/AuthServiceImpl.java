@@ -45,7 +45,7 @@ public class AuthServiceImpl implements AuthService {
 
         LOGGER.debug("code={}, iv={}, encryptedData:\n{}", code, iv, encryptedData);
 
-        webClient.get("api.weixin.qq.com", "/sns/jscode2session")
+        webClient.get(443, "api.weixin.qq.com", "/sns/jscode2session")
                 .addQueryParam("appid", appid)
                 .addQueryParam("secret", secret)
                 .addQueryParam("js_code", code)
@@ -68,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
                                 String dataStr = AesUtils.aesDecrypt(sessionKey, iv, encryptedData);
                                 LOGGER.debug("decryptedData:\n{}", dataStr);
 
-                                JsonObject jsonObject = Json.decodeValue(dataStr, JsonObject.class);
+                                JsonObject jsonObject = new JsonObject(dataStr);
 
                                 sessionDatabaseService.saveUserInfo(jsonObject, sKey, sessionKey, saved -> {
                                     if (saved.succeeded()) {
@@ -93,6 +93,7 @@ public class AuthServiceImpl implements AuthService {
                         }
 
                     } else {
+
                         resultHandler.handle(Future.failedFuture(ar.cause()));
                     }
                 });
@@ -106,7 +107,7 @@ public class AuthServiceImpl implements AuthService {
             if (fetch.succeeded()) {
                 JsonObject jsonObject = fetch.result();
                 if (jsonObject.getBoolean("found")) {
-                    resultHandler.handle(Future.succeededFuture(Json.decodeValue(jsonObject.getString("user_info"), JsonObject.class)));
+                    resultHandler.handle(Future.succeededFuture(new JsonObject(jsonObject.getString("USER_INFO"))));
                 } else {
                     resultHandler.handle(Future.failedFuture(fetch.cause()));
                 }

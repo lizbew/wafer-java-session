@@ -8,7 +8,6 @@
 .vertx
 .yardoc
 .yardopts
-bin
 build
 target
 out

@@ -12,8 +12,10 @@ import io.vertx.ext.sql.UpdateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
+
 
 /**
  * Created on 2018/1/3.
@@ -21,6 +23,8 @@ import java.util.UUID;
  */
 public class SessionDatabaseServiceImpl implements SessionDatabaseService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SessionDatabaseServiceImpl.class);
+
+    private static SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     private final static String SQL_CREATE_SESSION_TABLE = "CREATE TABLE IF NOT EXISTS cSessionInfo ("
             + "id integer identity primary key,"
@@ -74,9 +78,10 @@ public class SessionDatabaseServiceImpl implements SessionDatabaseService {
     @Override
     public SessionDatabaseService saveUserInfo(JsonObject decryptedData, String skey, String sessionKey, Handler<AsyncResult<JsonObject>> resultHandler) {
         String uuid = UUID.randomUUID().toString();
-        Date now = new Date();
+        String now = sdf.format(new Date());
 
         JsonObject resultJson = new JsonObject();
+        resultJson.put("id", uuid);
         resultJson.put("userInfo", decryptedData);
         resultJson.put("skey", skey);
 
