@@ -1,3 +1,8 @@
+/**
+ * Created on 2018/1/3.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ */
+
 package com.viifly.wafer.database;
 
 import io.vertx.core.AsyncResult;
@@ -16,11 +21,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.UUID;
 
-
-/**
- * Created on 2018/1/3.
- * Licensed under the Apache License, Version 2.0 (the "License");
- */
 public class SessionDatabaseServiceImpl implements SessionDatabaseService {
     private static final Logger LOGGER = LoggerFactory.getLogger(SessionDatabaseServiceImpl.class);
 

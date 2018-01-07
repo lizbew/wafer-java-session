@@ -1,5 +1,6 @@
 package com.viifly.wafer.database;
 
+import com.viifly.wafer.database.rxjava.SessionDatabaseService;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -9,7 +10,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
 /**
  * Created on 2018/1/5.
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,7 +33,7 @@ public class SessionDatabaseVerticleTest {
     public void testDbServiceSaveUserInfo(TestContext context) {
         final Async async = context.async();
 
-        SessionDatabaseService sessionDatabaseService = SessionDatabaseService.createProxy(vertx, SessionDatabaseVerticle.CONFIG_DB_QUEUE);
+        SessionDatabaseService sessionDatabaseService = com.viifly.wafer.database.SessionDatabaseService.createProxy(vertx, SessionDatabaseVerticle.CONFIG_DB_QUEUE);
 
         JsonObject decryptedData = new JsonObject()
                 .put("openId", "aaa");

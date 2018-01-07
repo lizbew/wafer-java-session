@@ -6,7 +6,9 @@ package com.viifly.wafer.database;
  */
 
 import io.vertx.codegen.annotations.Fluent;
+import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.ProxyGen;
+import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -15,13 +17,17 @@ import io.vertx.ext.jdbc.JDBCClient;
 
 
 @ProxyGen
+@VertxGen
 public interface SessionDatabaseService {
+
+    @GenIgnore
     static SessionDatabaseService create(JDBCClient dbClient, Handler<AsyncResult<SessionDatabaseService>> readyHandler) {
         return new SessionDatabaseServiceImpl(dbClient, readyHandler);
     }
 
-    static SessionDatabaseService createProxy(Vertx vertx, String address) {
-        return new SessionDatabaseServiceVertxEBProxy(vertx, address);
+    @GenIgnore
+    static com.viifly.wafer.database.rxjava.SessionDatabaseService createProxy(Vertx vertx, String address) {
+        return new com.viifly.wafer.database.rxjava.SessionDatabaseService(new SessionDatabaseServiceVertxEBProxy(vertx, address));
     }
 
     @Fluent

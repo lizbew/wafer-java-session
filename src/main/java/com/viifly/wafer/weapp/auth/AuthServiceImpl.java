@@ -6,19 +6,17 @@ package com.viifly.wafer.weapp.auth;
  */
 
 import com.viifly.wafer.WeixinConfig;
-import com.viifly.wafer.database.SessionDatabaseService;
+import com.viifly.wafer.database.rxjava.SessionDatabaseService;
 import com.viifly.wafer.util.AesUtils;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.codec.BodyCodec;
+import io.vertx.rxjava.ext.web.client.WebClient;
+import io.vertx.rxjava.ext.web.codec.BodyCodec;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.commons.codec.digest.DigestUtils;
 
 
 public class AuthServiceImpl implements AuthService {
@@ -33,7 +31,6 @@ public class AuthServiceImpl implements AuthService {
         this.wxConfig = wxConfig;
         this.webClient = webClient;
         this.sessionDatabaseService = sessionDatabaseService;
-
 
         readyHandler.handle(Future.succeededFuture(this));
     }
@@ -51,70 +48,68 @@ public class AuthServiceImpl implements AuthService {
                 .addQueryParam("js_code", code)
                 .addQueryParam("grant_type", "authorization_code")
                 .as(BodyCodec.jsonObject())
-                .send(ar -> {
-                    if (ar.succeeded()) {
-                        HttpResponse<JsonObject> response = ar.result();
-                        //if (response.statusCode() == 200)
-                        LOGGER.debug("jscode2session, response.statusCode()={}", response.statusCode());
+                .rxSend()
+                .subscribe(response -> {
+                    //if (response.statusCode() == 200)
+                    LOGGER.debug("jscode2session, response.statusCode()={}", response.statusCode());
 
-                        JsonObject json = response.body();
-                        LOGGER.debug("jscode2session, json={}", json);
+                    JsonObject json = response.body();
+                    LOGGER.debug("jscode2session, json={}", json);
 
-                        if (json.getString("openid") != null) {
-                            String sessionKey = json.getString("session_key");
-                            String sKey = DigestUtils.sha1Hex(sessionKey);
+                    if (json.getString("openid") != null) {
+                        String sessionKey = json.getString("session_key");
+                        String sKey = DigestUtils.sha1Hex(sessionKey);
 
-                            try {
-                                String dataStr = AesUtils.aesDecrypt(sessionKey, iv, encryptedData);
-                                LOGGER.debug("decryptedData:\n{}", dataStr);
+                        try {
+                            String dataStr = AesUtils.aesDecrypt(sessionKey, iv, encryptedData);
+                            LOGGER.debug("decryptedData:\n{}", dataStr);
 
-                                JsonObject jsonObject = new JsonObject(dataStr);
+                            JsonObject jsonObject = new JsonObject(dataStr);
 
-                                sessionDatabaseService.saveUserInfo(jsonObject, sKey, sessionKey, saved -> {
-                                    if (saved.succeeded()) {
-                                        resultHandler.handle(Future.succeededFuture(saved.result()));
-                                    } else {
-                                        resultHandler.handle(Future.failedFuture(saved.cause()));
-                                    }
-                                });
+
+                            sessionDatabaseService.rxSaveUserInfo(jsonObject, sKey, sessionKey)
+                                    .subscribe(result -> {
+                                        resultHandler.handle(Future.succeededFuture(result));
+                                    }, t -> {
+                                        resultHandler.handle(Future.failedFuture(t));
+                                    });
+
                                 /*
                                 JsonObject retJson = new JsonObject()
                                         .put("userinfo", jsonObject)
                                         .put("skey", sKey);
                                 resultHandler.handle(Future.succeededFuture(retJson));
                                 */
-                            } catch (Exception e) {
-                                LOGGER.error("AesUtils.aesDecrypt Error", e);
-                                resultHandler.handle(Future.failedFuture(e.getMessage()));
-                            }
-
-                        } else {
-                            resultHandler.handle(Future.failedFuture(json.getString("errmsg")));
+                        } catch (Exception e) {
+                            LOGGER.error("AesUtils.aesDecrypt Error", e);
+                            resultHandler.handle(Future.failedFuture(e.getMessage()));
                         }
 
                     } else {
-
-                        resultHandler.handle(Future.failedFuture(ar.cause()));
+                        resultHandler.handle(Future.failedFuture(json.getString("errmsg")));
                     }
+
+                }, t -> {
+                    resultHandler.handle(Future.failedFuture(t));
                 });
+
 
         return this;
     }
 
     @Override
     public AuthService validation(String skey, Handler<AsyncResult<JsonObject>> resultHandler) {
-        sessionDatabaseService.getUserInfoBySKey(skey, fetch -> {
-            if (fetch.succeeded()) {
-                JsonObject jsonObject = fetch.result();
-                if (jsonObject.getBoolean("found")) {
-                    resultHandler.handle(Future.succeededFuture(new JsonObject(jsonObject.getString("USER_INFO"))));
-                } else {
-                    resultHandler.handle(Future.failedFuture(fetch.cause()));
-                }
-            } else {
-                resultHandler.handle(Future.failedFuture(fetch.cause()));
-            }
-        });
+        sessionDatabaseService.rxGetUserInfoBySKey(skey)
+                .subscribe(data -> {
+                    if (data.getBoolean("found")) {
+                        resultHandler.handle(Future.succeededFuture(new JsonObject(data.getString("USER_INFO"))));
+                    } else {
+                        resultHandler.handle(Future.failedFuture("Not Found"));
+                    }
+                }, t -> {
+                    resultHandler.handle(Future.failedFuture(t));
+                });
+
         return this;
     }
 }

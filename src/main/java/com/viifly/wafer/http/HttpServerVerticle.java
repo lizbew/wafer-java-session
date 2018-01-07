@@ -1,26 +1,23 @@
-package com.viifly.wafer.http;
-
-
 /**
  * Created on 2018/1/1.
  * Licensed under the Apache License, Version 2.0 (the "License");
  */
 
+package com.viifly.wafer.http;
 
 import com.viifly.wafer.CommonConstants;
-import com.viifly.wafer.weapp.auth.AuthService;
 import com.viifly.wafer.weapp.auth.AuthServiceVerticle;
+import com.viifly.wafer.weapp.auth.rxjava.AuthService;
 import io.vertx.core.Future;
-import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.ext.web.handler.CookieHandler;
+import io.vertx.rxjava.core.AbstractVerticle;
+import io.vertx.rxjava.ext.web.Router;
+import io.vertx.rxjava.ext.web.RoutingContext;
+import io.vertx.rxjava.ext.web.handler.BodyHandler;
+import io.vertx.rxjava.ext.web.handler.CookieHandler;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import io.vertx.core.AbstractVerticle;
 
 public class HttpServerVerticle extends AbstractVerticle {
 
@@ -32,13 +29,12 @@ public class HttpServerVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> startFuture) throws Exception {
 
-        authService = AuthService.createProxy(vertx, AuthServiceVerticle.CONFIG_AUTH_QUEUE);
+        authService = com.viifly.wafer.weapp.auth.AuthService.createProxy(vertx.getDelegate(), AuthServiceVerticle.CONFIG_AUTH_QUEUE);
 
         Router router = Router.router(vertx);
 
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
-
 
         router.get("/").handler(this::indexHandler);
         router.get("/hello").handler(this::testHandler);
@@ -49,14 +45,13 @@ public class HttpServerVerticle extends AbstractVerticle {
         int portNumber = config().getInteger(CONFIG_HTTP_SERVER_PORT, 8080);
         vertx.createHttpServer()
                 .requestHandler(router::accept)
-                .listen(portNumber, ar -> {
-                    if (ar.succeeded()) {
-                        LOGGER.info("HTTP server running on port " + portNumber);
-                        startFuture.complete();
-                    } else {
-                        LOGGER.error("Could not start a HTTP server", ar.cause());
-                        startFuture.fail(ar.cause());
-                    }
+                .rxListen(portNumber)
+                .subscribe(s -> {
+                    LOGGER.info("HTTP server running on port " + portNumber);
+                    startFuture.complete();
+                }, t -> {
+                    LOGGER.error("Could not start a HTTP server", t);
+                    startFuture.fail(t);
                 });
     }
 
@@ -78,23 +73,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        authService.authorization(code, iv, encryptedData, ar -> {
-            if (ar.succeeded()) {
-                JsonObject retJson = new JsonObject()
-                        .put("F2C224D4-2BCE-4C64-AF9F-A6D872000D1A", 1)
-                        .put("session", ar.result());
+        authService.rxAuthorization(code, iv, encryptedData)
+                .subscribe(session -> {
+                    JsonObject retJson = new JsonObject()
+                            .put("F2C224D4-2BCE-4C64-AF9F-A6D872000D1A", 1)
+                            .put("session", session);
 
-                //String openid = jsonObject.getString("openid");
-                //String sessionKey = jsonObject.getString("session_key");
-
-                context.response().putHeader("Content-Type", "application/json");
-
-                context.response().end(retJson.encode());
-            } else {
-                context.response().setStatusCode(400);
-                context.response().end("getSessionKey Failed: " + ar.cause());
-            }
-        });
+                    context.response().putHeader("Content-Type", "application/json");
+                    context.response().end(retJson.encode());
+                }, t -> {
+                    context.response().setStatusCode(400);
+                    context.response().end("getSessionKey Failed: " + t.getMessage());
+                });
 
     }
 
@@ -106,19 +96,18 @@ public class HttpServerVerticle extends AbstractVerticle {
             return;
         }
 
-        authService.validation(skey, ar -> {
-            if (ar.succeeded()) {
-                context.response().setStatusCode(200);
-                context.response().putHeader("Content-Type", "application/json");
-                context.response().end(ar.result().encode());
-            } else {
-                JsonObject data = new JsonObject()
-                        .put("noBody", true);
-                context.response().setStatusCode(401);
-                context.response().putHeader("Content-Type", "application/json");
-                context.response().end(data.encode());
-            }
-        });
+        authService.rxValidation(skey)
+                .subscribe(result -> {
+                    context.response().setStatusCode(200);
+                    context.response().putHeader("Content-Type", "application/json");
+                    context.response().end(result.encode());
+                }, t -> {
+                    JsonObject data = new JsonObject()
+                            .put("noBody", true);
+                    context.response().setStatusCode(401);
+                    context.response().putHeader("Content-Type", "application/json");
+                    context.response().end(data.encode());
+                });
 
         /*
         JsonObject data = new JsonObject()
