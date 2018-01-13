@@ -10,11 +10,16 @@ import com.viifly.wafer.weapp.auth.AuthServiceVerticle;
 import com.viifly.wafer.weapp.auth.rxjava.AuthService;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.handler.sockjs.SockJSHandlerOptions;
 import io.vertx.rxjava.core.AbstractVerticle;
+import io.vertx.rxjava.core.MultiMap;
 import io.vertx.rxjava.ext.web.Router;
 import io.vertx.rxjava.ext.web.RoutingContext;
 import io.vertx.rxjava.ext.web.handler.BodyHandler;
 import io.vertx.rxjava.ext.web.handler.CookieHandler;
+import io.vertx.rxjava.ext.web.handler.ErrorHandler;
+import io.vertx.rxjava.ext.web.handler.StaticHandler;
+import io.vertx.rxjava.ext.web.handler.sockjs.SockJSHandler;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,14 +38,19 @@ public class HttpServerVerticle extends AbstractVerticle {
 
         Router router = Router.router(vertx);
 
+        //router.route().handler(this::logHandler);
+
+        router.route("/ws*").handler(sockJSHandler());
+
         router.route().handler(CookieHandler.create());
         router.route().handler(BodyHandler.create());
-
         router.get("/").handler(this::indexHandler);
         router.get("/hello").handler(this::testHandler);
         router.get("/login").handler(this::weappLoginHandler);
         router.get("/me").handler(this::weappMeHandler);
 
+        router.route().failureHandler(errorHandler());
+        router.route().handler(staticHandler());
 
         int portNumber = config().getInteger(CONFIG_HTTP_SERVER_PORT, 8080);
         vertx.createHttpServer()
@@ -124,6 +134,49 @@ public class HttpServerVerticle extends AbstractVerticle {
         context.response().setStatusCode(200);
         context.response().putHeader("Content-Type", "text/plain");
         context.response().end("OK");
+    }
+
+    private ErrorHandler errorHandler() {
+        return ErrorHandler.create();
+    }
+
+    private StaticHandler staticHandler() {
+        return StaticHandler.create()
+                .setCachingEnabled(false);
+    }
+
+//    private Router wsSubRouter() {
+//        Router router = new Router()
+//    }
+    private SockJSHandler sockJSHandler(){
+        // only allow WEBSOCKET and EVENT_SOURCE
+        SockJSHandlerOptions options = new SockJSHandlerOptions().setHeartbeatInterval(2000)
+                .addDisabledTransport("EVENT_SOURCE")
+                .addDisabledTransport("HTML_FILE")
+                .addDisabledTransport("JSON_P")
+                .addDisabledTransport("XHR");
+
+        SockJSHandler sockJSHandler = SockJSHandler.create(vertx, options);
+
+        sockJSHandler.socketHandler(sockJSSocket -> {
+
+            LOGGER.info("sockJSSocket, {}", sockJSSocket.uri());
+            // Just echo the data back
+            sockJSSocket.handler(sockJSSocket::write);
+        });
+
+        return sockJSHandler;
+    }
+
+    private void logHandler(RoutingContext context) {
+        System.out.println("url======= " + context.request().absoluteURI());
+
+        MultiMap headers = context.request().headers();
+        for(String n :headers.names()) {
+            System.out.println(n +": " +headers.get(n));
+        }
+
+        context.next();
     }
 
 }
